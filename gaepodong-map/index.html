@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>개포동 인기 스팟 지도</title>
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_APP_KEY&libraries=services"></script>
+
+  <!-- Leaflet.js (OpenStreetMap) — API 키 불필요 -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -62,8 +66,8 @@
       transition: background 0.15s;
     }
 
-    .spot-item:hover   { background: #f0f7ff; }
-    .spot-item.active  { background: #e8f0fe; border-left: 3px solid #1a73e8; }
+    .spot-item:hover  { background: #f0f7ff; }
+    .spot-item.active { background: #e8f0fe; border-left: 3px solid #1a73e8; }
 
     .spot-icon {
       width: 40px;
@@ -87,17 +91,20 @@
       font-weight: 500;
       margin-bottom: 4px;
     }
-    .spot-desc { font-size: 0.78rem; color: #666; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    /* ── 오른쪽 지도 영역 ── */
-    .map-section {
-      flex: 1;
-      position: relative;
+    .spot-desc {
+      font-size: 0.78rem;
+      color: #666;
+      line-height: 1.4;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
+    /* ── 오른쪽 지도 영역 ── */
+    .map-section { flex: 1; position: relative; }
     #map { width: 100%; height: 100%; }
 
-    /* ── 상세 패널 (지도 위 오버레이) ── */
+    /* ── 상세 패널 ── */
     .detail-panel {
       position: absolute;
       bottom: 24px;
@@ -108,7 +115,7 @@
       border-radius: 16px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
       padding: 24px;
-      z-index: 100;
+      z-index: 1000;
       display: none;
       animation: slideUp 0.25s ease;
     }
@@ -151,7 +158,7 @@
       flex-shrink: 0;
     }
 
-    .detail-name { font-size: 1.15rem; font-weight: 700; }
+    .detail-name    { font-size: 1.15rem; font-weight: 700; }
     .detail-address { font-size: 0.78rem; color: #888; margin-top: 2px; }
 
     .detail-cat {
@@ -178,17 +185,9 @@
       margin-bottom: 6px;
     }
 
-    .recommend-box p {
-      font-size: 0.82rem;
-      line-height: 1.6;
-      color: #444;
-    }
+    .recommend-box p { font-size: 0.82rem; line-height: 1.6; color: #444; }
 
-    .reasons {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .reasons { display: flex; flex-direction: column; gap: 8px; }
 
     .reason-item {
       display: flex;
@@ -213,29 +212,6 @@
       flex-shrink: 0;
       margin-top: 2px;
     }
-
-    /* 카테고리 색상 */
-    .cat-nature    { background: #e8f5e9; color: #2e7d32; }
-    .cat-food      { background: #fff3e0; color: #e65100; }
-    .cat-culture   { background: #f3e5f5; color: #6a1b9a; }
-    .cat-leisure   { background: #e3f2fd; color: #1565c0; }
-    .cat-shopping  { background: #fce4ec; color: #880e4f; }
-    .cat-landmark  { background: #f1f8e9; color: #33691e; }
-
-    .no-key-banner {
-      position: absolute;
-      top: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      border-radius: 8px;
-      padding: 8px 16px;
-      font-size: 0.8rem;
-      color: #856404;
-      z-index: 200;
-      white-space: nowrap;
-    }
   </style>
 </head>
 <body>
@@ -243,7 +219,7 @@
 <header>
   <div>
     <h1>📍 개포동 인기 스팟</h1>
-    <p>서울 강남구 개포동 · 마커를 클릭하면 추천 이유를 확인하세요</p>
+    <p>서울 강남구 개포동 · 마커를 클릭하면 추천 이유를 확인하세요 · OpenStreetMap 기반</p>
   </div>
 </header>
 
@@ -258,11 +234,6 @@
   <!-- 지도 -->
   <div class="map-section">
     <div id="map"></div>
-
-    <!-- API Key 미설정 안내 (키 설정 후 제거) -->
-    <div class="no-key-banner" id="key-banner">
-      ⚠️ 카카오 API 키를 설정하면 실제 지도가 표시됩니다 — index.html의 YOUR_KAKAO_APP_KEY를 교체하세요
-    </div>
 
     <!-- 상세 패널 -->
     <div class="detail-panel" id="detail-panel">
@@ -285,20 +256,19 @@
 </div>
 
 <script>
-// ── 개포동 인기 스팟 데이터 ──────────────────────────────────────────────
+// ── 스팟 데이터 ─────────────────────────────────────────────────────────
 const SPOTS = [
   {
     id: 1,
     name: "대모산 자연공원",
-    address: "서울 강남구 개포동 산 산 일대",
+    address: "서울 강남구 개포동 산 일대",
     lat: 37.4780, lng: 127.0745,
-    category: "nature", catLabel: "자연·등산",
-    icon: "⛰️",
+    category: "nature", catLabel: "자연·등산", icon: "⛰️",
     summary: "도심 속 천혜의 자연 힐링 공간으로, 서울 어디서나 접근하기 쉬운 도심 근교 산입니다. 사계절 내내 다양한 즐거움을 제공하며 주민들의 건강 산책로로 큰 인기를 끕니다.",
     reasons: [
       "강남 한복판에서 30분 내로 오를 수 있는 해발 293m의 아늑한 산으로, 등산 입문자부터 숙련자까지 누구나 즐길 수 있습니다.",
       "주능선에서 바라보는 강남·분당 전경이 일품이며, 야경 명소로도 손꼽힙니다.",
-      "대모산~구룡산~양재시민의숲으로 이어지는 그린벨트 트레킹 코스의 시작점으로 활용됩니다.",
+      "대모산→구룡산→양재시민의숲으로 이어지는 그린벨트 트레킹 코스의 시작점으로 활용됩니다.",
       "봄 진달래·벚꽃, 가을 단풍이 특히 아름다워 시즌별 포토스팟으로 유명합니다."
     ]
   },
@@ -307,8 +277,7 @@ const SPOTS = [
     name: "구룡산 등산로",
     address: "서울 강남구 개포동 구룡산 일대",
     lat: 37.4760, lng: 127.0640,
-    category: "nature", catLabel: "자연·등산",
-    icon: "🌲",
+    category: "nature", catLabel: "자연·등산", icon: "🌲",
     summary: "대모산과 능선으로 연결되어 있으며, 상대적으로 덜 알려진 조용한 힐링 코스입니다. 구룡마을을 품고 있어 도시와 자연의 경계를 체험할 수 있습니다.",
     reasons: [
       "해발 306m로 대모산보다 약간 높지만 등산로가 완만하게 잘 정비되어 있어 부담이 없습니다.",
@@ -322,8 +291,7 @@ const SPOTS = [
     name: "양재천 산책로",
     address: "서울 강남구 개포동 양재천 일대",
     lat: 37.4793, lng: 127.0580,
-    category: "leisure", catLabel: "산책·레저",
-    icon: "🚶",
+    category: "leisure", catLabel: "산책·레저", icon: "🚶",
     summary: "개포동을 가로지르는 양재천은 사계절 내내 시민들의 러닝·자전거·산책 코스로 각광받는 도심 속 자연 하천입니다.",
     reasons: [
       "수변 생태 복원사업으로 백로, 오리 등 다양한 야생조류가 서식하며 자연 관찰 명소가 되었습니다.",
@@ -337,8 +305,7 @@ const SPOTS = [
     name: "개포 전통시장",
     address: "서울 강남구 개포로 지하상가 일대",
     lat: 37.4855, lng: 127.0630,
-    category: "shopping", catLabel: "시장·쇼핑",
-    icon: "🛒",
+    category: "shopping", catLabel: "시장·쇼핑", icon: "🛒",
     summary: "강남구에서 보기 드문 정겨운 재래시장으로, 신선한 식재료와 저렴한 먹거리가 가득한 주민 친화 시장입니다.",
     reasons: [
       "강남 한복판에서 합리적인 가격으로 신선한 채소·수산·정육을 구매할 수 있어 주민들에게 높은 만족도를 줍니다.",
@@ -352,8 +319,7 @@ const SPOTS = [
     name: "개포 디에이치 아너힐즈 공원",
     address: "서울 강남구 개포동 개포로 지구단위계획구역",
     lat: 37.4820, lng: 127.0595,
-    category: "landmark", catLabel: "공원·랜드마크",
-    icon: "🏙️",
+    category: "landmark", catLabel: "공원·랜드마크", icon: "🏙️",
     summary: "개포지구 재개발로 탄생한 새로운 도시공원으로, 현대적 조경과 어린이 놀이시설이 어우러진 신흥 주거 명소입니다.",
     reasons: [
       "재건축 후 기부채납된 넓은 녹지 공간이 조성되어 쾌적한 도심 공원 환경을 제공합니다.",
@@ -367,8 +333,7 @@ const SPOTS = [
     name: "개포동 카페 거리",
     address: "서울 강남구 개포로 카페 밀집 구역",
     lat: 37.4840, lng: 127.0660,
-    category: "food", catLabel: "카페·음식",
-    icon: "☕",
+    category: "food", catLabel: "카페·음식", icon: "☕",
     summary: "재개발 이후 젊은 카페 창업자들이 모여들며 형성된 개포동의 신흥 카페 거리입니다. 다양한 콘셉트와 메뉴로 주민과 외부 방문객 모두를 끌어들입니다.",
     reasons: [
       "스페셜티 커피 전문점부터 대형 베이커리 카페까지 다양한 형태의 카페가 밀집해 취향대로 선택 가능합니다.",
@@ -382,8 +347,7 @@ const SPOTS = [
     name: "서울 도시농업공원 (개포)",
     address: "서울 강남구 개포동 도시농업공원",
     lat: 37.4800, lng: 127.0700,
-    category: "culture", catLabel: "문화·체험",
-    icon: "🌱",
+    category: "culture", catLabel: "문화·체험", icon: "🌱",
     summary: "강남구가 운영하는 도시농업체험 공간으로, 어린이부터 노인까지 텃밭 체험, 식물교육, 가족 프로그램을 제공하는 복합 문화 공간입니다.",
     reasons: [
       "직접 채소를 심고 수확하는 텃밭 분양 프로그램이 운영되어 도심 속 농경 체험이 가능합니다.",
@@ -397,8 +361,7 @@ const SPOTS = [
     name: "개포 키즈카페 & 문화복합시설",
     address: "서울 강남구 개포동 문화복합시설 일대",
     lat: 37.4870, lng: 127.0610,
-    category: "culture", catLabel: "문화·체험",
-    icon: "🎨",
+    category: "culture", catLabel: "문화·체험", icon: "🎨",
     summary: "개포동 재개발과 함께 신설된 문화복합시설로, 공공도서관·키즈카페·강좌실이 통합된 원스톱 가족 문화공간입니다.",
     reasons: [
       "강남구립 도서관과 키즈 문화센터가 결합된 공간으로, 아이와 부모 모두 각자의 시간을 효율적으로 활용할 수 있습니다.",
@@ -409,192 +372,98 @@ const SPOTS = [
   }
 ];
 
-// ── 카테고리 색상 매핑 ────────────────────────────────────────────────────
-const CAT_COLORS = {
-  nature:   { bg: '#e8f5e9', text: '#2e7d32', marker: '#43a047' },
-  food:     { bg: '#fff3e0', text: '#e65100', marker: '#fb8c00' },
-  culture:  { bg: '#f3e5f5', text: '#6a1b9a', marker: '#8e24aa' },
-  leisure:  { bg: '#e3f2fd', text: '#1565c0', marker: '#1e88e5' },
-  shopping: { bg: '#fce4ec', text: '#880e4f', marker: '#e91e63' },
-  landmark: { bg: '#f1f8e9', text: '#33691e', marker: '#7cb342' },
+// ── 카테고리 색상 ────────────────────────────────────────────────────────
+const CAT = {
+  nature:   { bg: '#e8f5e9', text: '#2e7d32', pin: '#43a047' },
+  food:     { bg: '#fff3e0', text: '#e65100', pin: '#fb8c00' },
+  culture:  { bg: '#f3e5f5', text: '#6a1b9a', pin: '#8e24aa' },
+  leisure:  { bg: '#e3f2fd', text: '#1565c0', pin: '#1e88e5' },
+  shopping: { bg: '#fce4ec', text: '#880e4f', pin: '#e91e63' },
+  landmark: { bg: '#f1f8e9', text: '#33691e', pin: '#7cb342' },
 };
 
-// ── 지도 초기화 ───────────────────────────────────────────────────────────
-let map, markers = [], activeSpot = null;
+// ── Leaflet 지도 초기화 ──────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([37.4820, 127.0645], 15);
 
-function initMap() {
-  const container = document.getElementById('map');
-  const options = {
-    center: new kakao.maps.LatLng(37.4820, 127.0645),
-    level: 5
-  };
-  map = new kakao.maps.Map(container, options);
+// OpenStreetMap 타일 (무료, 승인 불필요)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19,
+}).addTo(map);
 
-  // 지도 컨트롤 추가
-  map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
-  map.addControl(new kakao.maps.MapTypeControl(), kakao.maps.ControlPosition.TOPRIGHT);
+// ── 마커 생성 ────────────────────────────────────────────────────────────
+SPOTS.forEach(spot => {
+  const c = CAT[spot.category] || CAT.landmark;
 
-  SPOTS.forEach(spot => createMarker(spot));
-  renderSidebar();
-  document.getElementById('key-banner').style.display = 'none';
-}
-
-function createMarker(spot) {
-  const color = CAT_COLORS[spot.category]?.marker || '#1a73e8';
-
-  // SVG 커스텀 마커
+  // SVG 핀 마커
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
-      <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30S36 31.5 36 18C36 8.06 27.94 0 18 0z" fill="${color}"/>
-      <circle cx="18" cy="18" r="10" fill="white"/>
-      <text x="18" y="23" text-anchor="middle" font-size="12">${spot.icon}</text>
+    <svg xmlns="http://www.w3.org/2000/svg" width="38" height="50" viewBox="0 0 38 50">
+      <path d="M19 0C8.51 0 0 8.51 0 19c0 14.25 19 31 19 31S38 33.25 38 19C38 8.51 29.49 0 19 0z" fill="${c.pin}" stroke="white" stroke-width="2"/>
+      <circle cx="19" cy="19" r="11" fill="white"/>
+      <text x="19" y="24" text-anchor="middle" font-size="13">${spot.icon}</text>
     </svg>`;
 
-  const imgSrc = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-  const markerImage = new kakao.maps.MarkerImage(
-    imgSrc,
-    new kakao.maps.Size(36, 48),
-    { offset: new kakao.maps.Point(18, 48) }
-  );
-
-  const marker = new kakao.maps.Marker({
-    map,
-    position: new kakao.maps.LatLng(spot.lat, spot.lng),
-    image: markerImage,
-    title: spot.name,
+  const icon = L.divIcon({
+    html: svg,
+    iconSize: [38, 50],
+    iconAnchor: [19, 50],
+    popupAnchor: [0, -52],
+    className: '',
   });
 
-  kakao.maps.event.addListener(marker, 'click', () => openDetail(spot));
-  markers.push({ spot, marker });
-}
+  const marker = L.marker([spot.lat, spot.lng], { icon }).addTo(map);
+  marker.on('click', () => openDetail(spot));
+});
 
-// ── 사이드바 렌더링 ───────────────────────────────────────────────────────
-function renderSidebar() {
-  const list = document.getElementById('spot-list');
-  document.getElementById('spot-count').textContent = SPOTS.length;
-  list.innerHTML = SPOTS.map(spot => {
-    const c = CAT_COLORS[spot.category] || {};
-    return `
-      <div class="spot-item" id="list-${spot.id}" onclick="openDetail(SPOTS[${spot.id-1}])">
-        <div class="spot-icon" style="background:${c.bg}; color:${c.text}">${spot.icon}</div>
-        <div class="spot-meta">
-          <div class="spot-name">${spot.name}</div>
-          <span class="spot-cat" style="background:${c.bg}; color:${c.text}">${spot.catLabel}</span>
-          <div class="spot-desc">${spot.summary}</div>
-        </div>
-      </div>`;
-  }).join('');
-}
+// ── 사이드바 렌더링 ──────────────────────────────────────────────────────
+document.getElementById('spot-count').textContent = SPOTS.length;
+document.getElementById('spot-list').innerHTML = SPOTS.map(spot => {
+  const c = CAT[spot.category] || {};
+  return `
+    <div class="spot-item" id="list-${spot.id}" onclick="openDetail(SPOTS[${spot.id - 1}])">
+      <div class="spot-icon" style="background:${c.bg}; color:${c.text}">${spot.icon}</div>
+      <div class="spot-meta">
+        <div class="spot-name">${spot.name}</div>
+        <span class="spot-cat" style="background:${c.bg}; color:${c.text}">${spot.catLabel}</span>
+        <div class="spot-desc">${spot.summary}</div>
+      </div>
+    </div>`;
+}).join('');
 
-// ── 상세 패널 열기 ────────────────────────────────────────────────────────
+// ── 상세 패널 열기 ───────────────────────────────────────────────────────
 function openDetail(spot) {
-  // 사이드바 활성 표시
   document.querySelectorAll('.spot-item').forEach(el => el.classList.remove('active'));
   const listEl = document.getElementById(`list-${spot.id}`);
-  if (listEl) { listEl.classList.add('active'); listEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  if (listEl) {
+    listEl.classList.add('active');
+    listEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 
-  // 지도 이동
-  map.panTo(new kakao.maps.LatLng(spot.lat, spot.lng));
+  map.flyTo([spot.lat, spot.lng], 16, { duration: 0.8 });
 
-  const c = CAT_COLORS[spot.category] || {};
-  document.getElementById('d-icon').textContent    = spot.icon;
-  document.getElementById('d-icon').style.background = c.bg;
-  document.getElementById('d-name').textContent    = spot.name;
-  document.getElementById('d-address').textContent = spot.address;
-  document.getElementById('d-cat').textContent     = spot.catLabel;
-  document.getElementById('d-cat').style.background = c.bg;
-  document.getElementById('d-cat').style.color      = c.text;
-  document.getElementById('d-summary').textContent = spot.summary;
+  const c = CAT[spot.category] || {};
+  document.getElementById('d-icon').textContent       = spot.icon;
+  document.getElementById('d-icon').style.background  = c.bg;
+  document.getElementById('d-name').textContent       = spot.name;
+  document.getElementById('d-address').textContent    = spot.address;
+  document.getElementById('d-cat').textContent        = spot.catLabel;
+  document.getElementById('d-cat').style.background   = c.bg;
+  document.getElementById('d-cat').style.color        = c.text;
+  document.getElementById('d-summary').textContent    = spot.summary;
 
-  const reasonsEl = document.getElementById('d-reasons');
-  reasonsEl.innerHTML = spot.reasons.map((r, i) => `
+  document.getElementById('d-reasons').innerHTML = spot.reasons.map((r, i) => `
     <div class="reason-item">
-      <span class="badge">${i+1}</span>
+      <span class="badge">${i + 1}</span>
       <span>${r}</span>
     </div>`).join('');
 
   document.getElementById('detail-panel').classList.add('visible');
-  activeSpot = spot;
 }
 
-// 패널 닫기
 document.getElementById('detail-close').addEventListener('click', () => {
   document.getElementById('detail-panel').classList.remove('visible');
   document.querySelectorAll('.spot-item').forEach(el => el.classList.remove('active'));
-  activeSpot = null;
 });
-
-// ── Kakao SDK 로드 후 초기화 ──────────────────────────────────────────────
-window.addEventListener('load', () => {
-  try {
-    if (typeof kakao !== 'undefined' && kakao.maps) {
-      kakao.maps.load(initMap);
-    } else {
-      showFallback();
-    }
-  } catch(e) {
-    showFallback();
-  }
-});
-
-// API 키 미설정 시 정적 폴백 UI
-function showFallback() {
-  const mapEl = document.getElementById('map');
-  mapEl.style.background = '#e8eaf6';
-  mapEl.style.display = 'flex';
-  mapEl.style.alignItems = 'center';
-  mapEl.style.justifyContent = 'center';
-  mapEl.innerHTML = `
-    <div style="text-align:center; padding:32px; max-width:480px;">
-      <div style="font-size:3rem; margin-bottom:16px;">🗺️</div>
-      <h2 style="color:#3949ab; margin-bottom:8px;">카카오 지도 API 키가 필요합니다</h2>
-      <p style="color:#666; line-height:1.6; font-size:0.9rem;">
-        <strong>index.html</strong> 상단의 스크립트 태그에서<br>
-        <code style="background:#fff; padding:2px 8px; border-radius:4px; color:#e53935;">YOUR_KAKAO_APP_KEY</code>를
-        실제 Kakao Developers에서<br>발급받은 JavaScript 앱 키로 교체하면<br>실제 지도가 표시됩니다.
-      </p>
-      <p style="margin-top:12px; font-size:0.8rem; color:#888;">
-        👉 <a href="https://developers.kakao.com" target="_blank" style="color:#3949ab;">developers.kakao.com</a> 에서 무료 발급
-      </p>
-    </div>`;
-
-  // 폴백에서도 사이드바 + 상세 패널은 동작하도록
-  renderSidebar();
-  document.getElementById('key-banner').style.display = 'none';
-
-  // 마커 클릭 대신 사이드바 클릭만 활성화
-  SPOTS.forEach(spot => {
-    const listEl = document.getElementById(`list-${spot.id}`);
-    if (listEl) {
-      listEl.addEventListener('click', () => openDetailFallback(spot));
-    }
-  });
-}
-
-function openDetailFallback(spot) {
-  document.querySelectorAll('.spot-item').forEach(el => el.classList.remove('active'));
-  const listEl = document.getElementById(`list-${spot.id}`);
-  if (listEl) listEl.classList.add('active');
-
-  const c = CAT_COLORS[spot.category] || {};
-  document.getElementById('d-icon').textContent    = spot.icon;
-  document.getElementById('d-icon').style.background = c.bg;
-  document.getElementById('d-name').textContent    = spot.name;
-  document.getElementById('d-address').textContent = spot.address;
-  document.getElementById('d-cat').textContent     = spot.catLabel;
-  document.getElementById('d-cat').style.background = c.bg;
-  document.getElementById('d-cat').style.color      = c.text;
-  document.getElementById('d-summary').textContent = spot.summary;
-
-  const reasonsEl = document.getElementById('d-reasons');
-  reasonsEl.innerHTML = spot.reasons.map((r, i) => `
-    <div class="reason-item">
-      <span class="badge">${i+1}</span>
-      <span>${r}</span>
-    </div>`).join('');
-
-  document.getElementById('detail-panel').classList.add('visible');
-}
 </script>
 </body>
 </html>
